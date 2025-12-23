@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>고주파 vs 저주파 ANC 한계 시뮬레이션</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6fa;
+      text-align: center;
+    }
+    canvas {
+      background: white;
+      border: 1px solid #ccc;
+      margin-top: 10px;
+    }
+    .controls {
+      margin: 15px;
+    }
+    label {
+      display: inline-block;
+      width: 160px;
+    }
+    button {
+      margin: 5px;
+      padding: 6px 12px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>고주파·저주파에서 ANC 성능 비교 시뮬레이션</h2>
+<p>
+  🔴 외부 소음 | 🔵 이어폰 | ⚫ 합성 | 🟢 평형 위치
+</p>
+
+<div class="controls">
+  <div>
+    <button onclick="setLowFreq()">저주파 소음</button>
+    <button onclick="setHighFreq()">고주파 소음</button>
+  </div>
+  <div>
+    <label>외부 소음 파장</label>
+    <input type="range" min="40" max="200" value="120" id="wavelength">
+  </div>
+</div>
+
+<canvas id="canvas" width="900" height="360"></canvas>
+
+<script>
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+
+  const wavelengthSlider = document.getElementById("wavelength");
+
+  const centerY = 180;
+  let t = 0;
+
+  let noiseLambda = 120;        // 외부 소음 파장
+  let earLambda = 120;          // 이어폰 파장 (지연 반영)
+  const followSpeed = 0.02;     // 1초 정도 걸려 따라가게 조절
+
+  function setLowFreq() {
+    noiseLambda = 150;
+    wavelengthSlider.value = 150;
+  }
+
+  function setHighFreq() {
+    noiseLambda = 60;
+    wavelengthSlider.value = 60;
+  }
+
+  function drawCenterLine() {
+    ctx.beginPath();
+    ctx.setLineDash([8, 6]);
+    ctx.moveTo(0, centerY);
+    ctx.lineTo(canvas.width, centerY);
+    ctx.strokeStyle = "green";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function drawWave(color, lambda, phaseShift) {
+    ctx.beginPath();
+    for (let x = 0; x < canvas.width; x++) {
+      const y = 40 * Math.sin((2 * Math.PI / lambda) * x - t + phaseShift);
+      ctx.lineTo(x, centerY - y);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  function drawObjects() {
+    ctx.fillStyle = "#555";
+    ctx.fillRect(40, centerY - 20, 90, 40);
+    ctx.fillText("외부 소음원", 40, centerY - 30);
+
+    ctx.fillStyle = "#222";
+    ctx.beginPath();
+    ctx.arc(830, centerY, 30, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillText("이어폰", 810, centerY + 45);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 외부 소음 파장 즉시 반영
+    noiseLambda = Number(wavelengthSlider.value);
+
+    // 이어폰 파장이 1초에 걸쳐 천천히 따라감 (지연)
+    earLambda += (noiseLambda - earLambda) * followSpeed;
+
+    drawCenterLine();
+    drawObjects();
+
+    // 🔴 외부 소음
+    drawWave("red", noiseLambda, 0);
+
+    // 🔵 이어폰 (항상 반대 위상)
+    drawWave("blue", earLambda, Math.PI);
+
+    // ⚫ 합성 파동
+    ctx.beginPath();
+    for (let x = 0; x < canvas.width; x++) {
+      const noise = 40 * Math.sin((2 * Math.PI / noiseLambda) * x - t);
+      const cancel = 40 * Math.sin((2 * Math.PI / earLambda) * x - t + Math.PI);
+      ctx.lineTo(x, centerY - (noise + cancel));
+    }
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    t += 0.12;
+    requestAnimationFrame(draw);
+  }
+
+  draw();
+</script>
+
+</body>
+</html>
